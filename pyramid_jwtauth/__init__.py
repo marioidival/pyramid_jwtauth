@@ -373,7 +373,7 @@ class JWTAuthenticationPolicy(object):
         except KeyError:
             params = parse_authz_header(request, None)
             if params is not None:
-                if params.get("scheme").upper() !=self.scheme:
+                if params.get("scheme").upper() != self.scheme.upper():
                     params = None
             request.environ["jwtauth.params"] = params
             return params
