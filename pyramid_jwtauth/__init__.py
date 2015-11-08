@@ -20,6 +20,7 @@ __version__ = "%d.%d.%d%s" % __ver_tuple__
 
 import sys
 import functools
+import logging
 
 from datetime import datetime
 from calendar import timegm
@@ -368,12 +369,15 @@ class JWTAuthenticationPolicy(object):
 
         If the request contains no JWT Auth credentials, None is returned.
         """
+        logging.info("In get_params")
         try:
             return request.environ["jwtauth.params"]
         except KeyError:
             params = parse_authz_header(request, None)
             if params is not None:
+                logging.info("params be None after parse_authz_header")
                 if params.get("scheme").upper() != self.scheme.upper():
+                    logging.info("{} is different of {}".format(params.get("scheme").upper(), self.scheme.upper()))
                     params = None
             request.environ["jwtauth.params"] = params
             return params
