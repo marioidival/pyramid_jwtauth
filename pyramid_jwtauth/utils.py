@@ -16,6 +16,7 @@ import sys
 import re
 import functools
 import base64
+import logging
 import webob
 
 requests = None
@@ -49,7 +50,7 @@ else:  # pragma: nocover
 # This is basically <name>=<value> where <value> can be an unquoted token,
 # an empty quoted string, or a quoted string where the ending quote is *not*
 # preceded by a backslash.
-_AUTH_PARAM_RE = r'([a-zA-Z0-9_\-]+)=(([a-zA-Z0-9_\-]+)|("")|(".*[^\\]"))'
+_AUTH_PARAM_RE = r'([a-zA-Z0-9_\-]+)\s(([a-zA-Z0-9_\-]+)|("")|(".*[^\\]"))'
 _AUTH_PARAM_RE = re.compile(r"^\s*" + _AUTH_PARAM_RE + r"\s*$")
 
 # Regular expression matching an unescaped quote character.
@@ -78,14 +79,18 @@ def parse_authz_header(request, *default):
          "username": "user1", "response": "123456"}
 
     """
+    logging.info("in parse_authz_header")
     # This outer try-except catches ValueError and
     # turns it into return-default if necessary.
     try:
         # Grab the auth header from the request, if any.
         authz = request.environ.get("HTTP_AUTHORIZATION")
+        logging.info("auth var: {}".format(authz))
         if authz is None:
             raise ValueError("Missing auth parameters")
         scheme, kvpairs_str = authz.split(None, 1)
+        logging.info("scheme var: {} - kvpairs_str: {}".format(scheme, kvpairs_str))
+
         # Split the parameters string into individual key=value pairs.
         # In the simple case we can just split by commas to get each pair.
         # Unfortunately this will break if one of the values contains a comma.
@@ -98,19 +103,8 @@ def parse_authz_header(request, *default):
                     kvpairs.append(kvpair)
                 else:
                     kvpairs[-1] = kvpairs[-1] + "," + kvpair
-            if not _AUTH_PARAM_RE.match(kvpairs[-1]):
-                raise ValueError('Malformed auth parameters')
         # Now we can just split by the equal-sign to get each key and value.
-        params = {"scheme": scheme}
-        for kvpair in kvpairs:
-            (key, value) = kvpair.strip().split("=", 1)
-            # For quoted strings, remove quotes and backslash-escapes.
-            if value.startswith('"'):
-                value = value[1:-1]
-                if _UNESC_QUOTE_RE.search(value):
-                    raise ValueError("Unescaped quote in quoted-string")
-                value = _ESCAPED_CHAR.sub(lambda m: m.group(0)[1], value)
-            params[key] = value
+        params = {"scheme": scheme, "token": kvpairs[-1]}
         return params
     except ValueError:
         if default:
